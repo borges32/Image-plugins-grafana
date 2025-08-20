@@ -1,0 +1,16 @@
+Para criar a imagem utilizar:
+
+docker build -t grafana-plugins-server.
+
+
+Para carregar o conteiner
+docker run --rm -p 3001:3001 \
+  -e PORT=3001 \
+  -e ZIP_DIR=/app/zips \
+  grafana-plugins-server
+
+
+endpoints:
+
+http://localhost:3001/download/{nome-plugin}
+http://localhost:3001/list
