@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  grafana-plugins-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: grafana-plugins-server
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - ZIP_DIR=/app/zips
+    volumes:
+      # Monta o diretório zips para facilitar updates sem rebuild
+      - ./zips:/app/zips:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - grafana-network
+
+networks:
+  grafana-network:
+    driver: bridge
