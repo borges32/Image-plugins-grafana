@@ -1,16 +1,195 @@
-Para criar a imagem utilizar:
+# Grafana Plugins Server
 
-docker build -t grafana-plugins-server.
+Servidor para distribuicao de plugins Grafana em formato ZIP, com interface web para upload, listagem e exclusao de plugins.
 
+## Execucao local (desenvolvimento)
 
-Para carregar o conteiner
-docker run --rm -p 3001:3001 \
-  -e PORT=3001 \
-  -e ZIP_DIR=/app/zips \
+```bash
+npm install
+
+ADMIN_PASSWORD=minha-senha SESSION_SECRET=segredo-qualquer npm start
+```
+
+Acesse http://localhost:3000 e faca login com usuario `admin`.
+
+## Variaveis de ambiente
+
+| Variavel              | Padrao                  | Descricao                                              |
+|-----------------------|-------------------------|--------------------------------------------------------|
+| PORT                  | 3000                    | Porta do servidor                                      |
+| ZIP_DIR               | ./zips                  | Diretorio dos arquivos ZIP                             |
+| STORAGE_TYPE          | local                   | Tipo de armazenamento: `local` ou `pvc`                |
+| ADMIN_USER            | admin                   | Usuario de login                                       |
+| ADMIN_PASSWORD_HASH   | -                       | Hash bcrypt da senha (producao)                        |
+| ADMIN_PASSWORD        | -                       | Senha em texto plano (somente desenvolvimento)         |
+| SESSION_SECRET        | -                       | Segredo para assinatura de cookies de sessao           |
+| SESSION_MAX_AGE       | 3600000                 | Duracao da sessao em milissegundos (padrao: 1 hora)    |
+| TRUST_PROXY           | -                       | Definir como `1` para habilitar cookies seguros (HTTPS)|
+
+Para gerar o hash bcrypt da senha:
+
+```bash
+npm run hash-password -- "sua-senha-aqui"
+```
+
+## Docker
+
+Para criar a imagem:
+
+```bash
+docker build -t grafana-plugins-server .
+```
+
+Para carregar o container:
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e ADMIN_PASSWORD=minha-senha \
+  -e SESSION_SECRET=segredo-qualquer \
+  -v ./zips:/app/zips \
   grafana-plugins-server
+```
 
+Usando docker-compose:
 
-endpoints:
+```bash
+# Criar arquivo .env com as variaveis (ver .env.example)
+docker compose up -d
+```
 
-http://localhost:3001/download/{nome-plugin}
-http://localhost:3001/list
+## Deploy no ARO (Azure Red Hat OpenShift) com PVC
+
+### 1. Criar o PersistentVolumeClaim
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-plugins-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+```
+
+### 2. Criar o Secret com as credenciais
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana-plugins-secret
+type: Opaque
+stringData:
+  ADMIN_PASSWORD_HASH: "$2a$10$...seu.hash.bcrypt.aqui..."
+  SESSION_SECRET: "uma-string-aleatoria-de-pelo-menos-32-caracteres"
+```
+
+### 3. Deployment
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana-plugins-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana-plugins-server
+  template:
+    metadata:
+      labels:
+        app: grafana-plugins-server
+    spec:
+      containers:
+        - name: grafana-plugins-server
+          image: grafana-plugins-server:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: ZIP_DIR
+              value: /mnt/plugins
+            - name: STORAGE_TYPE
+              value: pvc
+            - name: ADMIN_USER
+              value: admin
+            - name: TRUST_PROXY
+              value: "1"
+            - name: ADMIN_PASSWORD_HASH
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-plugins-secret
+                  key: ADMIN_PASSWORD_HASH
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-plugins-secret
+                  key: SESSION_SECRET
+          volumeMounts:
+            - name: plugins-storage
+              mountPath: /mnt/plugins
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: plugins-storage
+          persistentVolumeClaim:
+            claimName: grafana-plugins-pvc
+```
+
+### 4. Service e Route
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-plugins-server
+spec:
+  selector:
+    app: grafana-plugins-server
+  ports:
+    - port: 3000
+      targetPort: 3000
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: grafana-plugins-server
+spec:
+  to:
+    kind: Service
+    name: grafana-plugins-server
+  port:
+    targetPort: 3000
+  tls:
+    termination: edge
+```
+
+## Endpoints
+
+### Publicos (sem autenticacao)
+
+- `GET /health` - Health check
+- `GET /download/{nome-plugin}` - Download do plugin ZIP
+- `GET /list` - Lista de plugins em JSON
+
+### Protegidos (requer login)
+
+- `GET /admin/upload` - Formulario de upload
+- `POST /admin/upload` - Envio do arquivo ZIP
+- `GET /admin/list` - Listagem com opcao de excluir
+- `POST /admin/delete/{nome-plugin}` - Exclusao de plugin

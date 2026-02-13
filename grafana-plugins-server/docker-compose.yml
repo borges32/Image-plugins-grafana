@@ -12,9 +12,14 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - ZIP_DIR=/app/zips
+      - STORAGE_TYPE=local
+      - ADMIN_USER=admin
+      - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - SESSION_MAX_AGE=3600000
     volumes:
-      # Monta o diretório zips para facilitar updates sem rebuild
-      - ./zips:/app/zips:ro
+      # Read-write para suportar upload e exclusao
+      - ./zips:/app/zips
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]

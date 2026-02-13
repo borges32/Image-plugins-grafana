@@ -1,24 +1,29 @@
-# Etapa única, deps mínimas (prod)
+# Etapa unica, deps minimas (prod)
 FROM node:20-alpine
 
-# Variáveis
+# Variaveis
 ENV NODE_ENV=production
-ENV PORT=3001
+ENV PORT=3000
 ENV ZIP_DIR=/app/zips
+ENV STORAGE_TYPE=local
 
-# Diretório de trabalho
+# Diretorio de trabalho
 WORKDIR /app
 
-# Apenas package.json para cache de dependências
+# Apenas package.json para cache de dependencias
 COPY package.json ./
-RUN npm install
 RUN npm ci --omit=dev
 
-# Copia código e diretório de zips
-COPY server.mjs ./server.mjs
-COPY zips/ ./zips/
+# Copia codigo da aplicacao
+COPY server.mjs ./
+COPY views/ ./views/
+COPY middleware/ ./middleware/
+COPY routes/ ./routes/
 
-# Cria usuário não-root
+# Cria diretorio de zips (pode ser sobrescrito por volume)
+RUN mkdir -p /app/zips
+
+# Cria usuario nao-root
 RUN addgroup -S app && adduser -S app -G app \
   && chown -R app:app /app
 USER app
@@ -26,6 +31,7 @@ USER app
 EXPOSE 3000
 
 # Healthcheck simples
-HEALTHCHECK --interval=30s --timeout=3s --retries=3 CMD wget -qO- http://127.0.0.1:${PORT}/health || exit 1
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:${PORT}/health || exit 1
 
 CMD ["node", "server.mjs"]
