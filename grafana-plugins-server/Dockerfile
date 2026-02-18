@@ -10,8 +10,8 @@ ENV STORAGE_TYPE=local
 # Diretorio de trabalho
 WORKDIR /app
 
-# Apenas package.json para cache de dependencias
-COPY package.json ./
+# Copia manifestos para cache de dependencias
+COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
 # Copia codigo da aplicacao
