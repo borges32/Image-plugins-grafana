@@ -1,5 +1,5 @@
-# Etapa unica, deps minimas (prod)
-FROM node:20-alpine
+# Etapa unica, deps minimas (prod) - Red Hat UBI
+FROM registry.access.redhat.com/ubi9/nodejs-20-minimal:latest
 
 # Variaveis
 ENV NODE_ENV=production
@@ -23,15 +23,13 @@ COPY routes/ ./routes/
 # Cria diretorio de zips (pode ser sobrescrito por volume)
 RUN mkdir -p /app/zips
 
-# Cria usuario nao-root
-RUN addgroup -S app && adduser -S app -G app \
-  && chown -R app:app /app
-USER app
+# Usa usuario nao-root (UBI minimal ja roda com UID 1001)
+USER 1001
 
 EXPOSE 3000
 
 # Healthcheck simples
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:${PORT}/health || exit 1
+  CMD curl -sf http://127.0.0.1:${PORT}/health || exit 1
 
 CMD ["node", "server.mjs"]
