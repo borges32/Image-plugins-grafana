@@ -193,3 +193,10 @@ spec:
 - `POST /admin/upload` - Envio do arquivo ZIP
 - `GET /admin/list` - Listagem com opcao de excluir
 - `POST /admin/delete/{nome-plugin}` - Exclusao de plugin
+
+
+
+
+$2a$10$ntDY9.VTPPkkHBZZZ8qcU.ICqxSoi76blFZyQ502A.6BigYUj1PCC
+
+SESSION_SECRET="k8s-grafana-xPt92mNqL7vBz3fWuJdR5sYc"
