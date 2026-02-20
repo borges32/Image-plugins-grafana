@@ -195,7 +195,7 @@ spec:
 - `POST /admin/delete/{nome-plugin}` - Exclusao de plugin
 
 
-
+npm run hash-password -- "admin"
 
 $2a$10$ntDY9.VTPPkkHBZZZ8qcU.ICqxSoi76blFZyQ502A.6BigYUj1PCC
 
